@@ -5,6 +5,8 @@ import matplotlib.pyplot as plt
 from sklearn.ensemble import RandomForestRegressor
 import sklearn.preprocessing as preprocessing
 from sklearn import linear_model
+from sklearn import model_selection
+from sklearn.ensemble import BaggingRegressor
 
 
 def firstGraph(pd, data_train):
@@ -238,6 +240,10 @@ def logistic_regression():
     clf = linear_model.LogisticRegression(solver='liblinear', C=1.0, penalty='l1', tol=1e-6)
     clf.fit(X, y)
 
+    # LR模型系数
+    # print(pd.DataFrame({"columns": list(train_df.columns)[1:], "coef": list(clf.coef_.T)}))
+
+    plot_learning_curve(clf, u"学习曲线", X, y)
     return clf
 
 
@@ -258,6 +264,128 @@ def format_test_data(data_test):
     df_test = data_preporocessing(df_test)
     # print(df_test.head())
     return df_test
+
+
+def cross_validation(df):
+    clf = linear_model.LogisticRegression(solver='liblinear', C=1.0, penalty='l1', tol=1e-6)
+    all_data = df.filter(regex='Survived|Age_.*|SibSp|Parch|Fare_.*|Cabin_.*|Embarked_.*|Sex_.*|Pclass_.*')
+    X = all_data.values[:, 1:]
+    y = all_data.values[:, 0]
+    #
+    # clf估计方法对象(分类器)，这里是LogisticRegression
+    # X：数据特征(Features)
+    # y：数据标签(Labels)
+    # cv代表几折交叉验证 这里是5折，将数据集平均分割成5个等份
+    # print(model_selection.cross_val_score(clf, X, y, cv=5))
+
+
+def cross_validation_bad_case(df):
+    # .train_test_split将原始数据按照比例分割为“测试集”和“训练集”
+    # train_size：可以为浮点、整数或None，默认为None
+    # ①若为浮点时，表示训练集占总样本的百分比
+    # ②若为整数时，表示训练样本的样本数
+    # ③若为None时，train_size自动被设置成0.75
+    # random_state：随机数的种子。可以为整数、RandomState实例或None，默认为Non
+    # ①若为None时，每次生成的数据都是随机，可能不一样
+    # ②若为整数时，每次生成的数据都相同
+    split_train, split_cv = model_selection.train_test_split(df, test_size=0.3, random_state=42)
+    # 获取需要的数据
+    train_df = split_train.filter(regex='Survived|Age_.*|SibSp|Parch|Fare_.*|Cabin_.*|Embarked_.*|Sex_.*|Pclass_.*')
+    clf = linear_model.LogisticRegression(solver='liblinear', C=1.0, penalty='l1', tol=1e-6)
+    # 拟合训练集数据
+    clf.fit(train_df.values[:, 1:], train_df.values[:, 0])
+
+    # 交叉验证的测试集
+    cv_df = split_cv.filter(regex='Survived|Age_.*|SibSp|Parch|Fare_.*|Cabin_.*|Embarked_.*|Sex_.*|Pclass_.*')
+    # 预测测试集的结果
+    predictions = clf.predict(cv_df.values[:, 1:])
+
+    # 获取原始数据来比较结果
+    origin_data_train = pd.read_csv("data/train.csv")
+    # 获取预测结果与测试集的第一列（Survived值）不同的行，他们的PassengerId在原始train.csv中的乘客信息作为bad_cases
+    bad_cases = origin_data_train.loc[
+        origin_data_train['PassengerId'].isin(split_cv[predictions != cv_df.values[:, 0]]['PassengerId'].values)]
+    # print(bad_cases.head(10))
+
+
+def plot_learning_curve(estimator, title, X, y, ylim=None, cv=None, n_jobs=1,
+                        train_sizes=np.linspace(.05, 1., 20), verbose=0, plot=True):
+    """
+    画出data在某模型上的learning curve.
+    参数解释
+    ----------
+    estimator : 你用的分类器。
+    title : 表格的标题。
+    X : 输入的feature，numpy类型
+    y : 输入的target vector
+    ylim : tuple格式的(ymin, ymax), 设定图像中纵坐标的最低点和最高点
+    cv : 做cross-validation的时候，数据分成的份数，其中一份作为cv集，其余n-1份作为training(默认为3份)
+    n_jobs : 并行的的任务数(默认1)
+    verbose : 控制冗余。越高，有越多的信息
+    train_size : 控制用于生成学习曲线的样本的绝对或相对数量。是一个数组，
+    例如[0.1,0.25,0.5,1] 就是当样本是总样本数量的10%,25%,…100%时产生learning_curve
+    np.linspace 在指定的间隔内返回均匀间隔的数字，(.05, 1., 20) 是指从5%开始到100%等分为20个
+    """
+    train_sizes, train_scores, test_scores = model_selection.learning_curve(
+        estimator, X, y, cv=cv, n_jobs=n_jobs, train_sizes=train_sizes, verbose=verbose)
+
+    train_scores_mean = np.mean(train_scores, axis=1)
+    train_scores_std = np.std(train_scores, axis=1)
+    test_scores_mean = np.mean(test_scores, axis=1)
+    test_scores_std = np.std(test_scores, axis=1)
+
+    if plot:
+        plt.figure()
+        plt.title(title)
+        if ylim is not None:
+            plt.ylim(*ylim)
+        plt.xlabel(u"训练样本数")
+        plt.ylabel(u"得分")
+        plt.gca().invert_yaxis()
+        plt.grid()
+
+        plt.fill_between(train_sizes, train_scores_mean - train_scores_std, train_scores_mean + train_scores_std,
+                         alpha=0.1, color="b")
+        plt.fill_between(train_sizes, test_scores_mean - test_scores_std, test_scores_mean + test_scores_std,
+                         alpha=0.1, color="r")
+        plt.plot(train_sizes, train_scores_mean, 'o-', color="b", label=u"训练集上得分")
+        plt.plot(train_sizes, test_scores_mean, 'o-', color="r", label=u"交叉验证集上得分")
+
+        plt.legend(loc="best")
+
+        plt.draw()
+        plt.gca().invert_yaxis()
+        plt.show()
+
+    midpoint = ((train_scores_mean[-1] + train_scores_std[-1]) + (test_scores_mean[-1] - test_scores_std[-1])) / 2
+    diff = (train_scores_mean[-1] + train_scores_std[-1]) - (test_scores_mean[-1] - test_scores_std[-1])
+    return midpoint, diff
+
+
+def bagging(df, df_test):
+    train_df = df.filter(regex='Survived|Age_.*|SibSp|Parch|Fare_.*|Cabin_.*|Embarked_.*|Sex_.*|Pclass_.*')
+    train_np = train_df.values
+    y = train_np[:, 0]
+    X = train_np[:, 1:]
+    clf = linear_model.LogisticRegression(solver='liblinear', C=1.0, penalty='l1', tol=1e-6)
+    # n_estimators要集成的基估计器的个数。
+    # max_samples决定从train抽取去训练基估计器的样本数量。int 代表抽取数量，float代表抽取比例,这里是0.8
+    # max_features 决定从train抽取去训练基估计器的特征数量。int 代表抽取数量，float代表抽取比例，这里是100%
+    # bootstrap 决定样本子集的抽样方式（有放回和不放回），这里是有放回
+    # bootstrap_features决定特征子集的抽样方式（有放回和不放回），这里是不放回
+    # # n_jobs并行job个数 -1 是指与本机核心数相关
+    bagging_clf = BaggingRegressor(clf, n_estimators=20, max_samples=0.8, max_features=1.0, bootstrap=True,
+                                   bootstrap_features=False, n_jobs=-1)
+    # 拟合
+    bagging_clf.fit(X, y)
+
+    # 取出需要的列
+    test = df_test.filter(regex='Age_.*|SibSp|Parch|Fare_.*|Cabin_.*|Embarked_.*|Sex_.*|Pclass_.*')
+    predictions = bagging_clf.predict(test)
+    # 得出结果 写入csv文件
+    result = pd.DataFrame({'PassengerId': data_test['PassengerId'].values, 'Survived': predictions.astype(np.int32)})
+    result.to_csv("data/bagging_logistic_regression_prediction.csv", index=False)
+
 
 if __name__ == '__main__':
     # 显示所有列
@@ -298,9 +426,14 @@ if __name__ == '__main__':
     df_test = format_test_data(data_test)
     # print(df_test.head(10))
 
-    # 取出需要的列
-    test = df_test.filter(regex='Age_.*|SibSp|Parch|Fare_.*|Cabin_.*|Embarked_.*|Sex_.*|Pclass_.*')
-    predictions = clf.predict(test)
-    # 得出结果 写入csv文件
-    result = pd.DataFrame({'PassengerId':data_test['PassengerId'].values, 'Survived':predictions.astype(np.int32)})
-    result.to_csv("data/logistic_regression_prediction.csv", index=False)
+    # # 取出需要的列
+    # test = df_test.filter(regex='Age_.*|SibSp|Parch|Fare_.*|Cabin_.*|Embarked_.*|Sex_.*|Pclass_.*')
+    # predictions = clf.predict(test)
+    # # 得出结果 写入csv文件
+    # result = pd.DataFrame({'PassengerId':data_test['PassengerId'].values, 'Survived':predictions.astype(np.int32)})
+    # result.to_csv("data/logistic_regression_prediction.csv", index=False)
+
+    cross_validation(df)
+    cross_validation_bad_case(df)
+
+    bagging(df, df_test)
