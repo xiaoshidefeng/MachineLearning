@@ -137,7 +137,7 @@ def dataFirst(pd, data_train):
     df = pd.DataFrame(g.count()['PassengerId'])
     # print(df)
 
-    print(data_train.Cabin.value_counts())
+    # print(data_train.Cabin.value_counts())
 
 
 def dataSecond(pd, data_train):
@@ -191,18 +191,35 @@ def set_Cabin_type(df):
     df.loc[(df.Cabin.isnull()), 'Cabin'] = 'No'
     return df
 
+def format_cabin(data):
+    cabin_str_array = []
+    for cabin in data.Cabin:
+        cabin_str = str(cabin)
+        cabin_str = cabin_str[0:1]
+        # print(cabin_str.head(10))
+        cabin_str_array.append(cabin_str)
+    data['Cabin_Str'] = cabin_str_array
+    # print(df.head(10))
+    return data
+
+
+
 
 def change_dummies(pd, data):
-    dummies_cabin = pd.get_dummies(data['Cabin'], prefix='Cabin')
+    # dummies_cabin = pd.get_dummies(data['Cabin'], prefix='Cabin')
     dummies_embarked = pd.get_dummies(data['Embarked'], prefix='Embarked')
     dummies_sex = pd.get_dummies(data['Sex'], prefix='Sex')
     dummies_pclass = pd.get_dummies(data['Pclass'], prefix='Pclass')
+    dummies_cabin_str = pd.get_dummies(data['Cabin_Str'], prefix='Cabin_Str')
 
     # 拼接新的列数据
-    df = pd.concat([data, dummies_cabin, dummies_embarked, dummies_sex, dummies_pclass], axis=1)
+    df = pd.concat([data, dummies_embarked, dummies_sex, dummies_pclass, dummies_cabin_str], axis=1)
 
     # 删除多余的列
-    df.drop(['Pclass', 'Name', 'Sex', 'Ticket', 'Cabin', 'Embarked'], axis=1, inplace=True)
+    df.drop(['Pclass', 'Name', 'Sex', 'Ticket', 'Cabin', 'Embarked', 'Cabin_Str'], axis=1, inplace=True)
+    if 'Cabin_Str_T' in df:
+        df.drop(['Cabin_Str_T'], axis=1, inplace=True)
+
     return df
 
 
@@ -217,7 +234,7 @@ def data_preporocessing(data):
 
 def logistic_regression():
     # 通过正则拿出需要的那几列
-    train_df = df.filter(regex='Survived|Age_.*|SibSp|Parch|Fare_.*|Cabin_.*|Embarked_.*|Sex_.*|Pclass_.*')
+    train_df = df.filter(regex='Survived|Age_.*|SibSp|Parch|Fare_.*|Cabin_.*|Embarked_.*|Sex_.*|Pclass_.*|Cabin_Str_.*')
     train_np = train_df.values
 
     # 取出Survived那列 即第一列 作为y
@@ -257,12 +274,13 @@ def format_test_data(data_test):
     X = null_age[:, 1:]
     predictedAge = rfr.predict(X)
     data_test.loc[(data_test.Age.isnull()), 'Age'] = predictedAge
-
+    # print(data_test.info())
     # 复用先前的函数
-    data_test = set_Cabin_type(data_test)
+    # data_test = set_Cabin_type(data_test)
+    data_test = format_cabin(data_test)
     df_test = change_dummies(pd, data_test)
     df_test = data_preporocessing(df_test)
-    # print(df_test.head())
+    # print(df_test.head(10))
     return df_test
 
 
@@ -276,7 +294,7 @@ def cross_validation(df):
     # X：数据特征(Features)
     # y：数据标签(Labels)
     # cv代表几折交叉验证 这里是5折，将数据集平均分割成5个等份
-    # print(model_selection.cross_val_score(clf, X, y, cv=5))
+    print(model_selection.cross_val_score(clf, X, y, cv=5))
 
 
 def cross_validation_bad_case(df):
@@ -363,7 +381,7 @@ def plot_learning_curve(estimator, title, X, y, ylim=None, cv=None, n_jobs=1,
 
 
 def bagging(df, df_test):
-    train_df = df.filter(regex='Survived|Age_.*|SibSp|Parch|Fare_.*|Cabin_.*|Embarked_.*|Sex_.*|Pclass_.*')
+    train_df = df.filter(regex='Survived|Age_.*|SibSp|Parch|Fare_.*|Cabin_.*|Embarked_.*|Sex_.*|Pclass_.*|Cabin_Str_.*')
     train_np = train_df.values
     y = train_np[:, 0]
     X = train_np[:, 1:]
@@ -379,7 +397,7 @@ def bagging(df, df_test):
     # 拟合
     bagging_clf.fit(X, y)
 
-    # 取出需要的列
+    # # 取出需要的列
     test = df_test.filter(regex='Age_.*|SibSp|Parch|Fare_.*|Cabin_.*|Embarked_.*|Sex_.*|Pclass_.*')
     predictions = bagging_clf.predict(test)
     # 得出结果 写入csv文件
@@ -387,13 +405,15 @@ def bagging(df, df_test):
     result.to_csv("data/bagging_logistic_regression_prediction.csv", index=False)
 
 
+
+
 if __name__ == '__main__':
     # 显示所有列
-    # pd.set_option('display.max_columns', None)
-    # # 显示所有行
-    # pd.set_option('display.max_rows', None)
-    # # 设置value的显示长度为100，默认为50
-    # pd.set_option('max_colwidth', 100)
+    pd.set_option('display.max_columns', None)
+    # 显示所有行
+    pd.set_option('display.max_rows', None)
+    # 设置value的显示长度为100，默认为50
+    pd.set_option('max_colwidth', 100)
     # 全部显示在一行
     # pd.set_option('expand_frame_repr', False)
 
@@ -413,10 +433,12 @@ if __name__ == '__main__':
 
     # 返回两个变量 用了随机森林
     data_train, rfr = set_missing_age(data_train)
-    data_train = set_Cabin_type(data_train)
+    # data_train = set_Cabin_type(data_train)
     # print(data_train.head(10))
-
+    df = format_cabin(data_train)
+    # print(df.head(10))
     df = change_dummies(pd, data_train)
+
     # print(df.head(10))
 
     df = data_preporocessing(df)
@@ -425,15 +447,17 @@ if __name__ == '__main__':
     # print(clf)
     df_test = format_test_data(data_test)
     # print(df_test.head(10))
+    print(df.info())
+    print(df_test.info())
 
-    # # 取出需要的列
-    # test = df_test.filter(regex='Age_.*|SibSp|Parch|Fare_.*|Cabin_.*|Embarked_.*|Sex_.*|Pclass_.*')
+    # 取出需要的列
+    # test = df_test.filter(regex='Age_.*|SibSp|Parch|Fare_.*|Cabin_.*|Embarked_.*|Sex_.*|Pclass_.*|Cabin_Str_.*')
     # predictions = clf.predict(test)
     # # 得出结果 写入csv文件
     # result = pd.DataFrame({'PassengerId':data_test['PassengerId'].values, 'Survived':predictions.astype(np.int32)})
     # result.to_csv("data/logistic_regression_prediction.csv", index=False)
 
     cross_validation(df)
-    cross_validation_bad_case(df)
+    # cross_validation_bad_case(df)
 
     bagging(df, df_test)
