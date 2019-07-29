@@ -7,6 +7,7 @@ import sklearn.preprocessing as preprocessing
 from sklearn import linear_model
 from sklearn import model_selection
 from sklearn.ensemble import BaggingRegressor
+import re
 
 
 def firstGraph(pd, data_train):
@@ -233,7 +234,8 @@ def data_preporocessing(data):
 
 def logistic_regression():
     # 通过正则拿出需要的那几列
-    train_df = df.filter(regex='Survived|Age_.*|SibSp|Parch|Fare_.*|Cabin_.*|Embarked_.*|Sex_.*|Pclass_.*|Cabin_Str_.*')
+    train_df = df.filter(
+        regex='Survived|Age_.*|SibSp|Parch|Fare_.*|Cabin_.*|Embarked_.*|Sex_.*|Pclass_.*|Cabin_Str_.*|title_.*')
     train_np = train_df.values
 
     # 取出Survived那列 即第一列 作为y
@@ -285,7 +287,7 @@ def format_test_data(data_test):
 
 def cross_validation(df):
     clf = linear_model.LogisticRegression(solver='liblinear', C=1.0, penalty='l1', tol=1e-6)
-    all_data = df.filter(regex='Survived|Age_.*|SibSp|Parch|Fare_.*|Cabin_.*|Embarked_.*|Sex_.*|Pclass_.*')
+    all_data = df.filter(regex='Survived|Age_.*|SibSp|Parch|Fare_.*|Cabin_.*|Embarked_.*|Sex_.*|Pclass_.*|title_.*')
     X = all_data.values[:, 1:]
     y = all_data.values[:, 0]
     #
@@ -307,13 +309,14 @@ def cross_validation_bad_case(df):
     # ②若为整数时，每次生成的数据都相同
     split_train, split_cv = model_selection.train_test_split(df, test_size=0.3, random_state=42)
     # 获取需要的数据
-    train_df = split_train.filter(regex='Survived|Age_.*|SibSp|Parch|Fare_.*|Cabin_.*|Embarked_.*|Sex_.*|Pclass_.*')
+    train_df = split_train.filter(
+        regex='Survived|Age_.*|SibSp|Parch|Fare_.*|Cabin_.*|Embarked_.*|Sex_.*|Pclass_.*|title_.*')
     clf = linear_model.LogisticRegression(solver='liblinear', C=1.0, penalty='l1', tol=1e-6)
     # 拟合训练集数据
     clf.fit(train_df.values[:, 1:], train_df.values[:, 0])
 
     # 交叉验证的测试集
-    cv_df = split_cv.filter(regex='Survived|Age_.*|SibSp|Parch|Fare_.*|Cabin_.*|Embarked_.*|Sex_.*|Pclass_.*')
+    cv_df = split_cv.filter(regex='Survived|Age_.*|SibSp|Parch|Fare_.*|Cabin_.*|Embarked_.*|Sex_.*|Pclass_.*|title_.*')
     # 预测测试集的结果
     predictions = clf.predict(cv_df.values[:, 1:])
 
@@ -322,7 +325,7 @@ def cross_validation_bad_case(df):
     # 获取预测结果与测试集的第一列（Survived值）不同的行，他们的PassengerId在原始train.csv中的乘客信息作为bad_cases
     bad_cases = origin_data_train.loc[
         origin_data_train['PassengerId'].isin(split_cv[predictions != cv_df.values[:, 0]]['PassengerId'].values)]
-    # print(bad_cases.head(10))
+    print(bad_cases.head(10))
 
 
 def plot_learning_curve(estimator, title, X, y, ylim=None, cv=None, n_jobs=1,
@@ -380,8 +383,7 @@ def plot_learning_curve(estimator, title, X, y, ylim=None, cv=None, n_jobs=1,
 
 
 def bagging(df, df_test):
-    train_df = df.filter(regex='Survived|Age_.*|SibSp|Parch|Fare_.*|Cabin_.*|Embarked_.*|Sex_.*|Pclass_.*')
-
+    train_df = df.filter(regex='Survived|Age_.*|SibSp|Parch|Fare_.*|Cabin_.*|Embarked_.*|Sex_.*|Pclass_.*|title_.*')
     train_np = train_df.values
     y = train_np[:, 0]
     X = train_np[:, 1:]
@@ -398,11 +400,23 @@ def bagging(df, df_test):
     bagging_clf.fit(X, y)
 
     # # 取出需要的列
-    test = df_test.filter(regex='Age_.*|SibSp|Parch|Fare_.*|Cabin_.*|Embarked_.*|Sex_.*|Pclass_.*')
+    test = df_test.filter(regex='Age_.*|SibSp|Parch|Fare_.*|Cabin_.*|Embarked_.*|Sex_.*|Pclass_.*|title_.*')
     predictions = bagging_clf.predict(test)
     # 得出结果 写入csv文件
     result = pd.DataFrame({'PassengerId': data_test['PassengerId'].values, 'Survived': predictions.astype(np.int32)})
     result.to_csv("data/bagging_logistic_regression_prediction.csv", index=False)
+
+
+def get_name_msg(data):
+    title = []
+    for name in data.Name:
+        r = re.findall(r',\s(.*?)\.', name)[0]
+        if r != 'Col' and r != 'Dr' and r != 'Master' and r != 'Miss' and r != 'Mr' and r != 'Mrs' and r != 'Ms' and r != 'Rev':
+            r = 'other'
+        title.append(r)
+    dummies_title = pd.get_dummies(title, prefix='title')
+    data = pd.concat([data, dummies_title], axis=1)
+    return data
 
 
 if __name__ == '__main__':
@@ -417,6 +431,9 @@ if __name__ == '__main__':
 
     data_train = pd.read_csv("data/train.csv")
     data_test = pd.read_csv("data/test.csv")
+    data_train = get_name_msg(data_train)
+    data_test = get_name_msg(data_test)
+
     # print(data_train.head(10))
     # print(data_train.info())
     # print(data_train.describe())
@@ -431,7 +448,6 @@ if __name__ == '__main__':
 
     # 返回两个变量 用了随机森林
     data_train, rfr = set_missing_age(data_train)
-
     # data_train = set_Cabin_type(data_train)
     # print(data_train.head(10))
     df = format_cabin(data_train)
@@ -450,7 +466,7 @@ if __name__ == '__main__':
     # print(df_test.info())
 
     # 取出需要的列
-    # test = df_test.filter(regex='Age_.*|SibSp|Parch|Fare_.*|Cabin_.*|Embarked_.*|Sex_.*|Pclass_.*|Cabin_Str_.*')
+    # test = df_test.filter(regex='Age_.*|SibSp|Parch|Fare_.*|Cabin_.*|Embarked_.*|Sex_.*|Pclass_.*|title_.*')
     # predictions = clf.predict(test)
     # # 得出结果 写入csv文件
     # result = pd.DataFrame({'PassengerId':data_test['PassengerId'].values, 'Survived':predictions.astype(np.int32)})
