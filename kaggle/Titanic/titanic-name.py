@@ -410,12 +410,16 @@ def bagging(df, df_test):
 def get_name_msg(data):
     title = []
     for name in data.Name:
+        # 正则表达式\s代表空格 .要用\来转义
         r = re.findall(r',\s(.*?)\.', name)[0]
+        # 因为部分称呼太稀少 且存在train与test数据称呼不匹配的情况 所以稀少的称呼全部统一为other
         if r != 'Col' and r != 'Dr' and r != 'Master' and r != 'Miss' and r != 'Mr' and r != 'Mrs' and r != 'Ms' and r != 'Rev':
             r = 'other'
         title.append(r)
+    # 统一成0/1的形式
     dummies_title = pd.get_dummies(title, prefix='title')
     data = pd.concat([data, dummies_title], axis=1)
+    print(data.info())
     return data
 
 
@@ -466,11 +470,12 @@ if __name__ == '__main__':
     # print(df_test.info())
 
     # 取出需要的列
-    # test = df_test.filter(regex='Age_.*|SibSp|Parch|Fare_.*|Cabin_.*|Embarked_.*|Sex_.*|Pclass_.*|title_.*')
-    # predictions = clf.predict(test)
-    # # 得出结果 写入csv文件
-    # result = pd.DataFrame({'PassengerId':data_test['PassengerId'].values, 'Survived':predictions.astype(np.int32)})
-    # result.to_csv("data/logistic_regression_prediction.csv", index=False)
+    test = df_test.filter(regex='Age_.*|SibSp|Parch|Fare_.*|Cabin_.*|Embarked_.*|Sex_.*|Pclass_.*|title_.*')
+    predictions = clf.predict(test)
+    # 得出结果 写入csv文件
+    result = pd.DataFrame({'PassengerId':data_test['PassengerId'].values, 'Survived':predictions.astype(np.int32)})
+    result.to_csv("data/logistic_regression_prediction.csv", index=False)
+
 
     cross_validation(df)
     # cross_validation_bad_case(df)

@@ -193,11 +193,12 @@ def set_Cabin_type(df):
 
 
 def format_cabin(data):
+    # 由于Cabin为缺失值的情况python会将它读取为NaN，所以N开头就是缺失值
     cabin_str_array = []
     for cabin in data.Cabin:
         cabin_str = str(cabin)
         cabin_str = cabin_str[0:1]
-        # print(cabin_str.head(10))
+        # python 数组添加值要调用函数 不能直接赋值
         cabin_str_array.append(cabin_str)
     data['Cabin_Str'] = cabin_str_array
     # print(df.head(10))
@@ -450,11 +451,11 @@ if __name__ == '__main__':
     # print(df_test.info())
 
     # 取出需要的列
-    # test = df_test.filter(regex='Age_.*|SibSp|Parch|Fare_.*|Cabin_.*|Embarked_.*|Sex_.*|Pclass_.*|Cabin_Str_.*')
-    # predictions = clf.predict(test)
-    # # 得出结果 写入csv文件
-    # result = pd.DataFrame({'PassengerId':data_test['PassengerId'].values, 'Survived':predictions.astype(np.int32)})
-    # result.to_csv("data/logistic_regression_prediction.csv", index=False)
+    test = df_test.filter(regex='Age_.*|SibSp|Parch|Fare_.*|Cabin_.*|Embarked_.*|Sex_.*|Pclass_.*')
+    predictions = clf.predict(test)
+    # 得出结果 写入csv文件
+    result = pd.DataFrame({'PassengerId':data_test['PassengerId'].values, 'Survived':predictions.astype(np.int32)})
+    result.to_csv("data/logistic_regression_prediction.csv", index=False)
 
     cross_validation(df)
     # cross_validation_bad_case(df)
