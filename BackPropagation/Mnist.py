@@ -1,8 +1,11 @@
 #!/usr/bin/env python
 # -*- coding:utf-8 -*-
-import tensorflow as tf
+# import tensorflow as tf
+import tensorflow.compat.v1 as tf
 from tensorflow.examples.tutorials.mnist import input_data
 import matplotlib.pyplot as plt
+tf.disable_v2_behavior()
+
 
 class MutilClass:
     def __init__(self):
@@ -15,6 +18,8 @@ class MutilClass:
         self.n_input = 784
         self.n_classes = 10
 
+        # self.x = tf.Variable(tf.ones(dtype=float, shape=[None, self.n_input], name="x"))
+        # self.y = tf.Variable(tf.ones(dtype=float, shape=[None, self.n_classes], name="y"))
         self.x = tf.placeholder(dtype=float, shape=[None, self.n_input], name="x")
         self.y = tf.placeholder(dtype=float, shape=[None, self.n_classes], name="y")
         # random_normal 高斯分布初始化权重
@@ -37,10 +42,13 @@ class MutilClass:
         # tf.matmul（）将矩阵a乘以矩阵b，生成a * b
         # w1*X + b
         # sigmoid是 y = 1/(1 + exp (-x))  激活函数
+        # 注意x和w顺序 因为x每个数是行向量 所以要放前面
+        # 这里的add 对于一个矩阵加另一个向量 结果是矩阵的每一行加上这个向量的值
         layer_1 = tf.sigmoid(tf.add(tf.matmul(_X, _weights["w1"]), _bias["b1"]))
         layer_2 = tf.sigmoid(tf.add(tf.matmul(layer_1, _weights["w2"]), _bias["b2"]))
-        print(tf.matmul(layer_2, _weights["out"]) + _bias["out"])
-        return (tf.matmul(layer_2, _weights["out"]) + _bias["out"])
+        layer_out = tf.matmul(layer_2, _weights["out"]) + _bias["out"]
+        print(layer_out)
+        return (layer_out)
 
     # 定义反向传播
     def _back_propagation(self):
@@ -49,6 +57,7 @@ class MutilClass:
         # softmax归一化，为了平衡概率分布，同时避免出现概率为0的情况
         cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=pred, labels=self.y))
         optimizer = tf.train.GradientDescentOptimizer(learning_rate=0.001).minimize(cost)
+        # argmax返回向量中的最大值的索引号 如果是矩阵返回向量 这里返回一列向量 表示该图片数值
         corr = tf.equal(tf.argmax(pred, 1), tf.argmax(self.y, 1))
         accr = tf.reduce_mean(tf.cast(corr, dtype=float))
 
@@ -57,7 +66,7 @@ class MutilClass:
 
     # 训练模型
     def _train_model(self, _init, _optimizer, _cost, _accr):
-        epochs = 100
+        epochs = 30
         batch_size = 100
         display_steps = 1
         config = tf.ConfigProto()
