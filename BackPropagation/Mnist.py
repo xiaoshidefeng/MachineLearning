@@ -4,6 +4,7 @@ import tensorflow as tf
 from tensorflow.examples.tutorials.mnist import input_data
 import matplotlib.pyplot as plt
 
+
 class MutilClass:
     def __init__(self):
         # 加载数据集
@@ -44,14 +45,19 @@ class MutilClass:
 
     # 定义反向传播
     def _back_propagation(self):
+        # 多层感知机
         pred = self._multilayer_perceptron(self.x, self.weights, self.bias)
         # logits 未归一化的概率
         # softmax归一化，为了平衡概率分布，同时避免出现概率为0的情况
+        # reduce_mean 计算平均值
         cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=pred, labels=self.y))
+        # 优化函数
         optimizer = tf.train.GradientDescentOptimizer(learning_rate=0.001).minimize(cost)
         corr = tf.equal(tf.argmax(pred, 1), tf.argmax(self.y, 1))
+        # tf.cast()类型转换函数
+        # 准确率
         accr = tf.reduce_mean(tf.cast(corr, dtype=float))
-
+        # 初始化变量
         init = tf.global_variables_initializer()
         return init, optimizer, cost, accr
 
@@ -94,18 +100,14 @@ class MutilClass:
 
         plt.plot(x, y, label='train data accuracy')
         plt.plot(x, y2, label='test data accuracy')
-        plt.xlabel('epoch') # xlabel 方法指定 x 轴显示的名字
-        plt.ylabel('accuracy') # ylabel 方法指定 y 轴显示的名字
+        plt.xlabel('epoch')  # xlabel 方法指定 x 轴显示的名字
+        plt.ylabel('accuracy')  # ylabel 方法指定 y 轴显示的名字
         plt.title('mnist')
-        plt.legend() # legend 是在图区显示label，即上面 .plot()方法中label参数的值
+        plt.legend()  # legend 是在图区显示label，即上面 .plot()方法中label参数的值
         plt.show()
 
 
-
-
-
 if __name__ == '__main__':
-
     network = MutilClass()
     init, optimizer, cost, accr = network._back_propagation()
-    network._train_model(init, optimizer,cost, accr)
+    network._train_model(init, optimizer, cost, accr)
